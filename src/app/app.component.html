@@ -1,1 +1,7 @@
-<app-custom-select></app-custom-select>
+<app-custom-select placeholder="Type here..." [formControl]="formControl">
+  <app-custom-select-option *ngFor="let item of testData" [value]="item.id">
+    <p>{{ item.name }}</p>
+  </app-custom-select-option>
+</app-custom-select>
+
+<p>Control value: {{ formControl.value }}</p>
