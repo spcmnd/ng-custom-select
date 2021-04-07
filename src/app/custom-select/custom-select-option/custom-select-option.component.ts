@@ -9,6 +9,7 @@ import { CustomSelectService } from '../custom-select.service';
 @Component({
   selector: 'app-custom-select-option',
   templateUrl: 'custom-select-option.component.html',
+  styleUrls: ['custom-select-option.component.scss'],
 })
 export class CustomSelectOptionComponent {
   @Input() public value: any;

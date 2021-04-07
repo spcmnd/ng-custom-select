@@ -1,6 +1,10 @@
-<app-custom-select placeholder="Type here..." [formControl]="formControl">
-  <app-custom-select-option *ngFor="let item of testData" [value]="item.id">
-    <p>{{ item.name }}</p>
+<app-custom-select
+  placeholder="Type here..."
+  [formControl]="formControl"
+  [displayFn]="displayFn"
+>
+  <app-custom-select-option *ngFor="let item of testData" [value]="item">
+    <span>{{ item.name }}</span>
   </app-custom-select-option>
 </app-custom-select>
 

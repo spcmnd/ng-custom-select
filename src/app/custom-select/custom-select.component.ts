@@ -11,6 +11,7 @@ import {
   Optional,
   QueryList,
   TemplateRef,
+  ViewChild,
   ViewChildren,
   ViewContainerRef,
 } from '@angular/core';
@@ -30,7 +31,9 @@ export class CustomSelectComponent<T>
   implements ControlValueAccessor, AfterViewInit, OnDestroy {
   @ViewChildren('optionsContainerTpl', { read: TemplateRef })
   public optionsContainerTplRef: QueryList<TemplateRef<T[]>>;
+  @ViewChild('input') public inputRef: ElementRef<HTMLInputElement>;
   @Input() public placeholder: string;
+  @Input() public displayFn: (value: any) => string;
   public internalControl = new FormControl();
   private overlayRef: OverlayRef;
   private readonly destroyed$ = new Subject<void>();
@@ -112,14 +115,17 @@ export class CustomSelectComponent<T>
   }
 
   public writeValue(value: T): void {
-    this.internalControl.patchValue(value);
+    this.internalControl.patchValue(
+      this.displayFn ? this.setDisplayValue(value) : value
+    );
   }
 
   public registerOnChange(fn: any): void {
     this.internalControl.valueChanges
       .pipe(takeUntil(this.destroyed$))
       .subscribe({
-        next: (value) => fn(value),
+        next: (value) =>
+          fn(this.displayFn ? this.setDisplayValue(value) : value),
       });
   }
 
@@ -140,5 +146,15 @@ export class CustomSelectComponent<T>
   public ngOnDestroy(): void {
     this.destroyed$.next();
     this.destroyed$.complete();
+  }
+
+  private setDisplayValue(value: any): string {
+    const inputValue = this.displayFn(value) ? this.displayFn(value) : '';
+
+    if (this.inputRef) {
+      this.inputRef.nativeElement.value = inputValue;
+    }
+
+    return inputValue;
   }
 }
