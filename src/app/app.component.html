@@ -1,11 +1,16 @@
-<app-custom-select
-  placeholder="Type here..."
-  [formControl]="formControl"
-  [displayFn]="displayFn"
->
-  <app-custom-select-option *ngFor="let item of testData" [value]="item">
-    <span>{{ item.name }}</span>
-  </app-custom-select-option>
-</app-custom-select>
+<h1>Custom select component</h1>
 
-<p>Control value: {{ formControl.value }}</p>
+<main>
+  <app-custom-select
+    placeholder="Type here..."
+    [formControl]="formControl"
+    [displayFn]="displayFn"
+    (selectedOptionEvent)="handleSelectedOption($event)"
+  >
+    <app-custom-select-option *ngFor="let item of testData" [value]="item">
+      <span>{{ item.name }}</span>
+    </app-custom-select-option>
+  </app-custom-select>
+</main>
+
+<small>Made by spcmnd</small>

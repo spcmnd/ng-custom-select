@@ -1,41 +1,73 @@
 import { Overlay, OverlayConfig, OverlayRef } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
 import {
-  AfterViewInit,
   Component,
   ElementRef,
+  EventEmitter,
   HostListener,
   Injector,
   Input,
   OnDestroy,
   Optional,
-  QueryList,
+  Output,
   TemplateRef,
   ViewChild,
-  ViewChildren,
   ViewContainerRef,
 } from '@angular/core';
 import { ControlValueAccessor, FormControl, NgControl } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { CustomSelectPanelComponent } from './custom-select-panel/custom-select-panel.component';
-import { CustomSelectService } from './custom-select.service';
+import { CUSTOM_SELECT_OPTION_PARENT } from './custom-select-parent';
 
 @Component({
   selector: 'app-custom-select',
   templateUrl: 'custom-select.component.html',
   styleUrls: ['custom-select.component.scss'],
-  providers: [CustomSelectService],
+  providers: [
+    {
+      provide: CUSTOM_SELECT_OPTION_PARENT,
+      useExisting: CustomSelectComponent,
+    },
+  ],
 })
-export class CustomSelectComponent<T>
-  implements ControlValueAccessor, AfterViewInit, OnDestroy {
-  @ViewChildren('optionsContainerTpl', { read: TemplateRef })
-  public optionsContainerTplRef: QueryList<TemplateRef<T[]>>;
+export class CustomSelectComponent implements ControlValueAccessor, OnDestroy {
+  /*
+   * Container with CustomSelectOptionComponents to render in CustomSelectPanelComponent
+   */
+  @ViewChild('optionsContainerTpl', { read: TemplateRef })
+  public optionsContainerTplRef: TemplateRef<any[]>;
+
+  /*
+   * Native HTML input reference used to set display value
+   */
   @ViewChild('input') public inputRef: ElementRef<HTMLInputElement>;
+
   @Input() public placeholder: string;
+
+  /*
+   * Display function used to handle complex objects and display user-friendly value
+   */
   @Input() public displayFn: (value: any) => string;
+
+  /*
+  * Notify parent component when option is selected
+  */
+  @Output() public selectedOptionEvent = new EventEmitter();
+
+  /*
+   * FormControl used to be linked to native HTML input
+   */
   public internalControl = new FormControl();
+
+  /*
+   * Overlay reference used to do actions on CustomSelectPanelComponent
+   */
   private overlayRef: OverlayRef;
+
+  /*
+   * Subject used to trigger takeUntil operator to avoid memory leaks
+   */
   private readonly destroyed$ = new Subject<void>();
 
   constructor(
@@ -43,8 +75,7 @@ export class CustomSelectComponent<T>
     private overlay: Overlay,
     private elementRef: ElementRef,
     private viewContainerRef: ViewContainerRef,
-    private injector: Injector,
-    private customSelectService: CustomSelectService
+    private injector: Injector
   ) {
     if (this.ngControl) {
       this.ngControl.valueAccessor = this;
@@ -54,7 +85,9 @@ export class CustomSelectComponent<T>
   @HostListener('click', ['$event'])
   public handleClick(event: MouseEvent): void {
     event.preventDefault();
-
+    /*
+     * Create OverlayConfig instance to set OverlayRef position and behavior.
+     */
     const overlayConfig = new OverlayConfig();
     overlayConfig.positionStrategy = this.overlay
       .position()
@@ -76,7 +109,10 @@ export class CustomSelectComponent<T>
     overlayConfig.hasBackdrop = true;
     overlayConfig.disposeOnNavigation = true;
     overlayConfig.width = this.elementRef.nativeElement.clientWidth;
-
+    /*
+     * Create OverlayRef in order to plug listeners and render
+     * CustomSelectPanelComponent
+     */
     this.overlayRef = this.overlay.create(overlayConfig);
     this.overlayRef
       .backdropClick()
@@ -84,10 +120,6 @@ export class CustomSelectComponent<T>
       .subscribe({
         next: () => this.overlayRef.dispose(),
       });
-    this.overlayRef.updateSize({
-      width: this.elementRef.nativeElement.clientWidth,
-    });
-
     const componentRef = this.overlayRef.attach(
       new ComponentPortal(
         CustomSelectPanelComponent,
@@ -95,44 +127,40 @@ export class CustomSelectComponent<T>
         this.injector
       )
     );
-    componentRef.instance.optionsTemplateRef = this.optionsContainerTplRef.first;
+    componentRef.instance.optionsTemplateRef = this.optionsContainerTplRef;
   }
 
-  public ngAfterViewInit(): void {
-    this.customSelectService
-      .getSelectedValue()
-      .pipe(takeUntil(this.destroyed$))
-      .subscribe({
-        next: (selectedValue) =>
-          selectedValue && this.internalControl.patchValue(selectedValue),
-      });
-    this.customSelectService
-      .listenOptionSelectedEvent()
-      .pipe(takeUntil(this.destroyed$))
-      .subscribe({
-        next: () => this.overlayRef.dispose(),
-      });
-  }
-
-  public writeValue(value: T): void {
+  /*
+   * Handle external form group set or patch value on this form control
+   */
+  public writeValue(value: any): void {
     this.internalControl.patchValue(
-      this.displayFn ? this.setDisplayValue(value) : value
+      this.displayFn ? this._setDisplayValue(value) : value
     );
   }
 
+  /*
+   * Handle value change to notify external form group
+   */
   public registerOnChange(fn: any): void {
     this.internalControl.valueChanges
       .pipe(takeUntil(this.destroyed$))
       .subscribe({
         next: (value) =>
-          fn(this.displayFn ? this.setDisplayValue(value) : value),
+          fn(this.displayFn ? this._setDisplayValue(value) : value),
       });
   }
 
+  /*
+   * Notify external form group about input touched state
+   */
   public registerOnTouched(fn: () => void): void {
     fn = this.onTouched;
   }
 
+  /*
+   * Handle disable/enable methods on form control
+   */
   public setDisabledState?(isDisabled: boolean): void {
     if (isDisabled) {
       this.internalControl.disable();
@@ -141,14 +169,31 @@ export class CustomSelectComponent<T>
     }
   }
 
+  /*
+   * Function called from blur event on native HTML input
+   */
   public onTouched(): void {}
+
+  /*
+   * Function called when an option is selected
+   */
+  public setSelectedValue(value: any): void {
+    if (value) {
+      this.internalControl.patchValue(value);
+      this.selectedOptionEvent.emit(value);
+      this.overlayRef.dispose();
+    }
+  }
 
   public ngOnDestroy(): void {
     this.destroyed$.next();
     this.destroyed$.complete();
   }
 
-  private setDisplayValue(value: any): string {
+  /*
+   * Function used together with displayFn input to display user-friendly value
+   */
+  private _setDisplayValue(value: any): string {
     const inputValue = this.displayFn(value) ? this.displayFn(value) : '';
 
     if (this.inputRef) {

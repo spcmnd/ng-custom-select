@@ -5,5 +5,8 @@ import { Component, TemplateRef } from '@angular/core';
   styleUrls: ['custom-select-panel.component.scss'],
 })
 export class CustomSelectPanelComponent {
+  /*
+   * Template ref set by CustomSelectComponent when rendering overlay
+   */
   public optionsTemplateRef: TemplateRef<any>;
 }

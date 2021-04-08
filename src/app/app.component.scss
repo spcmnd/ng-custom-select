@@ -1,0 +1,22 @@
+:host {
+  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: max-content auto max-content;
+  height: 100%;
+  padding: 1em;
+  justify-content: center;
+  width: 100%;
+}
+
+h1 {
+  margin: 0;
+}
+
+main {
+  text-align: center;
+}
+
+small {
+  text-align: right;
+}

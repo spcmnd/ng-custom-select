@@ -9,6 +9,7 @@ interface ITestData {
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
+  styleUrls: ['./app.component.scss'],
 })
 export class AppComponent implements OnInit {
   public formControl: FormControl;
@@ -32,6 +33,14 @@ export class AppComponent implements OnInit {
   }
 
   public displayFn(value: ITestData): string {
-    return value?.name;
+    if (!value) {
+      return;
+    }
+
+    return value.name;
+  }
+
+  public handleSelectedOption(value: ITestData): void {
+    console.log('Custom select option selected:', value);
   }
 }
