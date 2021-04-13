@@ -5,8 +5,10 @@ import {
   Inject,
   Input,
 } from '@angular/core';
-import { CUSTOM_SELECT_OPTION_PARENT } from '../custom-select-parent';
-import { CustomSelectComponent } from '../custom-select.component';
+import {
+  CUSTOM_SELECT_OPTION_PARENT,
+  ICustomSelectOptionParent,
+} from '../custom-select-parent';
 
 @Component({
   selector: 'app-custom-select-option',
@@ -22,19 +24,8 @@ export class CustomSelectOptionComponent {
 
   constructor(
     @Inject(CUSTOM_SELECT_OPTION_PARENT)
-    private customSelectComponent: CustomSelectComponent
-  ) {
-    if (
-      !(
-        customSelectComponent ||
-        customSelectComponent instanceof CustomSelectComponent
-      )
-    ) {
-      throw Error(
-        'CustomSelectOptionComponent should be encapsulated in CustomSelectComponent.'
-      );
-    }
-  }
+    private customSelectComponent: ICustomSelectOptionParent
+  ) {}
 
   @HostListener('click', ['$event'])
   public handleClick(event: MouseEvent): void {

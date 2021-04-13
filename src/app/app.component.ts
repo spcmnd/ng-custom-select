@@ -1,5 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormControl } from '@angular/forms';
+import { Observable, Subject } from 'rxjs';
+import { map, startWith, takeUntil } from 'rxjs/operators';
 
 interface ITestData {
   id: number;
@@ -11,7 +13,7 @@ interface ITestData {
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss'],
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, OnDestroy {
   public formControl: FormControl;
   public testData: ITestData[] = [
     {
@@ -27,9 +29,23 @@ export class AppComponent implements OnInit {
       name: 'Third',
     },
   ];
+  public filteredOptions$: Observable<ITestData[]>;
+
+  private readonly destroyed$ = new Subject();
 
   public ngOnInit(): void {
     this.formControl = new FormControl();
+    this.filteredOptions$ = this.formControl.valueChanges.pipe(
+      takeUntil(this.destroyed$),
+      startWith(''),
+      map((value) => (typeof value === 'string' ? value : value.name)),
+      map((value) =>
+        this.testData.filter((td) =>
+          td.name.trim().toLowerCase().includes(value.trim().toLowerCase())
+        )
+      ),
+      map((options) => (options.length ? options : this.testData))
+    );
   }
 
   public displayFn(value: ITestData): string {
@@ -42,5 +58,10 @@ export class AppComponent implements OnInit {
 
   public handleSelectedOption(value: ITestData): void {
     console.log('Custom select option selected:', value);
+  }
+
+  public ngOnDestroy(): void {
+    this.destroyed$.next();
+    this.destroyed$.complete();
   }
 }

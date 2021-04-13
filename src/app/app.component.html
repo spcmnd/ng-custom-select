@@ -7,10 +7,12 @@
     [displayFn]="displayFn"
     (selectedOptionEvent)="handleSelectedOption($event)"
   >
-    <app-custom-select-option *ngFor="let item of testData" [value]="item">
+    <app-custom-select-option *ngFor="let item of filteredOptions$ | async" [value]="item">
       <span>{{ item.name }}</span>
     </app-custom-select-option>
   </app-custom-select>
+
+  <p *ngIf="formControl.value">Value: {{ formControl.value | json }}</p>
 </main>
 
 <small>Made by spcmnd</small>

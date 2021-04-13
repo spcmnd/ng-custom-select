@@ -1,7 +1,10 @@
 import { Overlay, OverlayConfig, OverlayRef } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
 import {
+  AfterContentInit,
+  ChangeDetectionStrategy,
   Component,
+  ContentChildren,
   ElementRef,
   EventEmitter,
   HostListener,
@@ -10,6 +13,7 @@ import {
   OnDestroy,
   Optional,
   Output,
+  QueryList,
   TemplateRef,
   ViewChild,
   ViewContainerRef,
@@ -17,8 +21,12 @@ import {
 import { ControlValueAccessor, FormControl, NgControl } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import { CustomSelectOptionComponent } from './custom-select-option/custom-select-option.component';
 import { CustomSelectPanelComponent } from './custom-select-panel/custom-select-panel.component';
-import { CUSTOM_SELECT_OPTION_PARENT } from './custom-select-parent';
+import {
+  CUSTOM_SELECT_OPTION_PARENT,
+  ICustomSelectOptionParent,
+} from './custom-select-parent';
 
 @Component({
   selector: 'app-custom-select',
@@ -26,21 +34,35 @@ import { CUSTOM_SELECT_OPTION_PARENT } from './custom-select-parent';
   styleUrls: ['custom-select.component.scss'],
   providers: [
     /*
-    * Provide here the parent of each CustomSelectOptionComponent
-    * in order to catch selected option value
-    */
+     * Provide here the parent of each CustomSelectOptionComponent
+     * in order to catch selected option value
+     */
     {
       provide: CUSTOM_SELECT_OPTION_PARENT,
       useExisting: CustomSelectComponent,
     },
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CustomSelectComponent implements ControlValueAccessor, OnDestroy {
+export class CustomSelectComponent
+  implements
+    ControlValueAccessor,
+    AfterContentInit,
+    OnDestroy,
+    ICustomSelectOptionParent {
   /*
    * Container with CustomSelectOptionComponents to render in CustomSelectPanelComponent
    */
   @ViewChild('optionsContainerTpl', { read: TemplateRef })
   public optionsContainerTplRef: TemplateRef<any>;
+
+  /*
+   * Query list of options rendered
+   */
+  @ContentChildren(CustomSelectOptionComponent, {
+    emitDistinctChangesOnly: true,
+  })
+  public customSelectOptions: QueryList<CustomSelectOptionComponent>;
 
   /*
    * Native HTML input reference used to set display value
@@ -111,6 +133,7 @@ export class CustomSelectComponent implements ControlValueAccessor, OnDestroy {
         },
       ]);
     overlayConfig.hasBackdrop = true;
+    overlayConfig.backdropClass = 'ng-custom-select-backdrop';
     overlayConfig.disposeOnNavigation = true;
     overlayConfig.width = this.elementRef.nativeElement.clientWidth;
     /*
@@ -134,6 +157,19 @@ export class CustomSelectComponent implements ControlValueAccessor, OnDestroy {
     componentRef.instance.optionsTemplateRef = this.optionsContainerTplRef;
   }
 
+  public ngAfterContentInit(): void {
+    /*
+     * Listen to ContentChildren changes in order to
+     * update position of the overlay in case of interface
+     * unexpected changes
+     */
+    this.customSelectOptions.changes
+      .pipe(takeUntil(this.destroyed$))
+      .subscribe({
+        next: () => this.overlayRef.updatePosition(),
+      });
+  }
+
   /*
    * Handle external form group set or patch value on this form control
    */
@@ -150,8 +186,13 @@ export class CustomSelectComponent implements ControlValueAccessor, OnDestroy {
     this.internalControl.valueChanges
       .pipe(takeUntil(this.destroyed$))
       .subscribe({
-        next: (value) =>
-          fn(this.displayFn ? this._setDisplayValue(value) : value),
+        next: (value) => {
+          if (this.displayFn) {
+            this._setDisplayValue(value);
+          }
+
+          fn(value);
+        },
       });
   }
 
@@ -198,7 +239,7 @@ export class CustomSelectComponent implements ControlValueAccessor, OnDestroy {
    * Function used together with displayFn input to display user-friendly value
    */
   private _setDisplayValue(value: any): string {
-    const inputValue = this.displayFn(value) ? this.displayFn(value) : '';
+    const inputValue = this.displayFn(value) ? this.displayFn(value) : value;
 
     if (this.inputRef) {
       this.inputRef.nativeElement.value = inputValue;
