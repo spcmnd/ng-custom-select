@@ -25,6 +25,10 @@ import { CUSTOM_SELECT_OPTION_PARENT } from './custom-select-parent';
   templateUrl: 'custom-select.component.html',
   styleUrls: ['custom-select.component.scss'],
   providers: [
+    /*
+    * Provide here the parent of each CustomSelectOptionComponent
+    * in order to catch selected option value
+    */
     {
       provide: CUSTOM_SELECT_OPTION_PARENT,
       useExisting: CustomSelectComponent,
@@ -36,7 +40,7 @@ export class CustomSelectComponent implements ControlValueAccessor, OnDestroy {
    * Container with CustomSelectOptionComponents to render in CustomSelectPanelComponent
    */
   @ViewChild('optionsContainerTpl', { read: TemplateRef })
-  public optionsContainerTplRef: TemplateRef<any[]>;
+  public optionsContainerTplRef: TemplateRef<any>;
 
   /*
    * Native HTML input reference used to set display value
@@ -51,8 +55,8 @@ export class CustomSelectComponent implements ControlValueAccessor, OnDestroy {
   @Input() public displayFn: (value: any) => string;
 
   /*
-  * Notify parent component when option is selected
-  */
+   * Notify parent component when option is selected
+   */
   @Output() public selectedOptionEvent = new EventEmitter();
 
   /*
