@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { Observable, Subject } from 'rxjs';
-import { map, startWith, takeUntil } from 'rxjs/operators';
+import { map, startWith, takeUntil, tap } from 'rxjs/operators';
 
 interface ITestData {
   id: number;
@@ -38,13 +38,15 @@ export class AppComponent implements OnInit, OnDestroy {
     this.filteredOptions$ = this.formControl.valueChanges.pipe(
       takeUntil(this.destroyed$),
       startWith(''),
-      map((value) => (typeof value === 'string' ? value : value.name)),
+      tap({
+        next: (v) => console.log('FormControl value:', v)
+      }),
+      map((value: string | ITestData) => (typeof value === 'string' ? value : value.name)),
       map((value) =>
         this.testData.filter((td) =>
           td.name.trim().toLowerCase().includes(value.trim().toLowerCase())
         )
       ),
-      map((options) => (options.length ? options : this.testData))
     );
   }
 

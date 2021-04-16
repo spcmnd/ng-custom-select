@@ -3,6 +3,7 @@ import { ComponentPortal } from '@angular/cdk/portal';
 import {
   AfterContentInit,
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   ContentChildren,
   ElementRef,
@@ -21,37 +22,37 @@ import {
 import { ControlValueAccessor, FormControl, NgControl } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
-import { CustomSelectOptionComponent } from './custom-select-option/custom-select-option.component';
-import { CustomSelectPanelComponent } from './custom-select-panel/custom-select-panel.component';
+import { CustomAutocompleteOptionComponent } from './custom-autocomplete-option/custom-autocomplete-option.component';
+import { CustomAutocompletePanelComponent } from './custom-autocomplete-panel/custom-autocomplete-panel.component';
 import {
-  CUSTOM_SELECT_OPTION_PARENT,
-  ICustomSelectOptionParent,
-} from './custom-select-parent';
+  CUSTOM_AUTOCOMPLETE_OPTION_PARENT,
+  ICustomAutocompleteOptionParent,
+} from './custom-autocomplete-parent';
 
 @Component({
-  selector: 'app-custom-select',
-  templateUrl: 'custom-select.component.html',
-  styleUrls: ['custom-select.component.scss'],
+  selector: 'app-custom-autocomplete',
+  templateUrl: 'custom-autocomplete.component.html',
+  styleUrls: ['custom-autocomplete.component.scss'],
   providers: [
     /*
-     * Provide here the parent of each CustomSelectOptionComponent
+     * Provide here the parent of each CustomAutocompleteOptionComponent
      * in order to catch selected option value
      */
     {
-      provide: CUSTOM_SELECT_OPTION_PARENT,
-      useExisting: CustomSelectComponent,
+      provide: CUSTOM_AUTOCOMPLETE_OPTION_PARENT,
+      useExisting: CustomAutocompleteComponent,
     },
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CustomSelectComponent
+export class CustomAutocompleteComponent
   implements
     ControlValueAccessor,
     AfterContentInit,
     OnDestroy,
-    ICustomSelectOptionParent {
+    ICustomAutocompleteOptionParent {
   /*
-   * Container with CustomSelectOptionComponents to render in CustomSelectPanelComponent
+   * Container with CustomAutocompleteOptionComponents to render in CustomAutocompletePanelComponent
    */
   @ViewChild('optionsContainerTpl', { read: TemplateRef })
   public optionsContainerTplRef: TemplateRef<any>;
@@ -59,10 +60,10 @@ export class CustomSelectComponent
   /*
    * Query list of options rendered
    */
-  @ContentChildren(CustomSelectOptionComponent, {
+  @ContentChildren(CustomAutocompleteOptionComponent, {
     emitDistinctChangesOnly: true,
   })
-  public customSelectOptions: QueryList<CustomSelectOptionComponent>;
+  public customAutocompleteOptions: QueryList<CustomAutocompleteOptionComponent>;
 
   /*
    * Native HTML input reference used to set display value
@@ -87,9 +88,11 @@ export class CustomSelectComponent
   public internalControl = new FormControl();
 
   /*
-   * Overlay reference used to do actions on CustomSelectPanelComponent
+   * Overlay reference used to do actions on CustomAutocompletePanelComponent
    */
   private overlayRef: OverlayRef;
+
+  public overlayAttached: boolean;
 
   /*
    * Subject used to trigger takeUntil operator to avoid memory leaks
@@ -101,7 +104,8 @@ export class CustomSelectComponent
     private overlay: Overlay,
     private elementRef: ElementRef,
     private viewContainerRef: ViewContainerRef,
-    private injector: Injector
+    private injector: Injector,
+    private cdr: ChangeDetectorRef
   ) {
     if (this.ngControl) {
       this.ngControl.valueAccessor = this;
@@ -111,50 +115,7 @@ export class CustomSelectComponent
   @HostListener('click', ['$event'])
   public handleClick(event: MouseEvent): void {
     event.preventDefault();
-    /*
-     * Create OverlayConfig instance to set OverlayRef position and behavior.
-     */
-    const overlayConfig = new OverlayConfig();
-    overlayConfig.positionStrategy = this.overlay
-      .position()
-      .flexibleConnectedTo(this.elementRef)
-      .withPositions([
-        {
-          originX: 'start',
-          originY: 'bottom',
-          overlayX: 'start',
-          overlayY: 'top',
-        },
-        {
-          originX: 'end',
-          originY: 'top',
-          overlayX: 'end',
-          overlayY: 'bottom',
-        },
-      ]);
-    overlayConfig.hasBackdrop = true;
-    overlayConfig.backdropClass = 'ng-custom-select-backdrop';
-    overlayConfig.disposeOnNavigation = true;
-    overlayConfig.width = this.elementRef.nativeElement.clientWidth;
-    /*
-     * Create OverlayRef in order to plug listeners and render
-     * CustomSelectPanelComponent
-     */
-    this.overlayRef = this.overlay.create(overlayConfig);
-    this.overlayRef
-      .backdropClick()
-      .pipe(takeUntil(this.destroyed$))
-      .subscribe({
-        next: () => this.overlayRef.dispose(),
-      });
-    const componentRef = this.overlayRef.attach(
-      new ComponentPortal(
-        CustomSelectPanelComponent,
-        this.viewContainerRef,
-        this.injector
-      )
-    );
-    componentRef.instance.optionsTemplateRef = this.optionsContainerTplRef;
+    this.attachOverlay();
   }
 
   public ngAfterContentInit(): void {
@@ -163,10 +124,10 @@ export class CustomSelectComponent
      * update position of the overlay in case of interface
      * unexpected changes
      */
-    this.customSelectOptions.changes
+    this.customAutocompleteOptions.changes
       .pipe(takeUntil(this.destroyed$))
       .subscribe({
-        next: () => this.overlayRef.updatePosition(),
+        next: () => this.overlayAttached && this.overlayRef.updatePosition(),
       });
   }
 
@@ -175,7 +136,7 @@ export class CustomSelectComponent
    */
   public writeValue(value: any): void {
     this.internalControl.patchValue(
-      this.displayFn ? this._setDisplayValue(value) : value
+      this.displayFn ? this.setDisplayValue(value) : value
     );
   }
 
@@ -187,8 +148,12 @@ export class CustomSelectComponent
       .pipe(takeUntil(this.destroyed$))
       .subscribe({
         next: (value) => {
+          if (!this.overlayAttached) {
+            this.attachOverlay();
+          }
+
           if (this.displayFn) {
-            this._setDisplayValue(value);
+            this.setDisplayValue(value);
           }
 
           fn(value);
@@ -226,7 +191,7 @@ export class CustomSelectComponent
     if (value) {
       this.internalControl.patchValue(value);
       this.selectedOptionEvent.emit(value);
-      this.overlayRef.dispose();
+      this.detachOverlay();
     }
   }
 
@@ -235,10 +200,16 @@ export class CustomSelectComponent
     this.destroyed$.complete();
   }
 
+  public handleFocus(): void {
+    if (!this.overlayAttached) {
+      this.attachOverlay();
+    }
+  }
+
   /*
    * Function used together with displayFn input to display user-friendly value
    */
-  private _setDisplayValue(value: any): string {
+  private setDisplayValue(value: any): string {
     const inputValue = this.displayFn(value) ? this.displayFn(value) : value;
 
     if (this.inputRef) {
@@ -246,5 +217,60 @@ export class CustomSelectComponent
     }
 
     return inputValue;
+  }
+
+  private attachOverlay(): void {
+    /*
+     * Create OverlayConfig instance to set OverlayRef position and behavior.
+     */
+    const overlayConfig = new OverlayConfig();
+    overlayConfig.positionStrategy = this.overlay
+      .position()
+      .flexibleConnectedTo(this.elementRef)
+      .withPositions([
+        {
+          originX: 'start',
+          originY: 'bottom',
+          overlayX: 'start',
+          overlayY: 'top',
+        },
+        {
+          originX: 'end',
+          originY: 'top',
+          overlayX: 'end',
+          overlayY: 'bottom',
+        },
+      ]);
+    overlayConfig.hasBackdrop = true;
+    overlayConfig.backdropClass = 'ng-custom-autocomplete-backdrop';
+    overlayConfig.disposeOnNavigation = true;
+    overlayConfig.width = this.elementRef.nativeElement.clientWidth;
+    /*
+     * Create OverlayRef in order to plug listeners and render
+     * CustomAutocompletePanelComponent
+     */
+    this.overlayRef = this.overlay.create(overlayConfig);
+    this.overlayRef
+      .backdropClick()
+      .pipe(takeUntil(this.destroyed$))
+      .subscribe({
+        next: () => this.detachOverlay(),
+      });
+    const componentRef = this.overlayRef.attach(
+      new ComponentPortal(
+        CustomAutocompletePanelComponent,
+        this.viewContainerRef,
+        this.injector
+      )
+    );
+    this.overlayAttached = true;
+    componentRef.instance.optionsTemplateRef = this.optionsContainerTplRef;
+  }
+
+  private detachOverlay(): void {
+    this.overlayRef.dispose();
+    this.overlayAttached = false;
+    this.overlayRef = undefined;
+    this.cdr.detectChanges();
   }
 }

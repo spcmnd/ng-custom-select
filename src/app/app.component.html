@@ -1,16 +1,19 @@
-<h1>Custom select component</h1>
+<h1>Custom autocomplete component</h1>
 
 <main>
-  <app-custom-select
+  <app-custom-autocomplete
     placeholder="Type here..."
     [formControl]="formControl"
     [displayFn]="displayFn"
     (selectedOptionEvent)="handleSelectedOption($event)"
   >
-    <app-custom-select-option *ngFor="let item of filteredOptions$ | async" [value]="item">
+    <app-custom-autocomplete-option
+      *ngFor="let item of filteredOptions$ | async"
+      [value]="item"
+    >
       <span>{{ item.name }}</span>
-    </app-custom-select-option>
-  </app-custom-select>
+    </app-custom-autocomplete-option>
+  </app-custom-autocomplete>
 
   <p *ngIf="formControl.value">Value: {{ formControl.value | json }}</p>
 </main>
