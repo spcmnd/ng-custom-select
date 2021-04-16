@@ -4,4 +4,4 @@ This project was generated with [Angular CLI](https://github.com/angular/angular
 
 ## Demo
 
-Here is a quick demo with test data: [Demo](http://spcmnd-ng-custom-select.surge.sh).
+Here is a quick demo with test data: [Demo](http://spcmnd-ng-custom-autocomplete.surge.sh).
